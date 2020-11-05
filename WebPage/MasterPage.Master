@@ -1,0 +1,328 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="MasterPage.master.cs" Inherits="WebPage.MasterPage" %>
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head runat="server">
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- plugins:css -->
+    <link rel="stylesheet" href="vendors/simple-line-icons/css/simple-line-icons.css">
+    <link rel="stylesheet" href="vendors/flag-icon-css/css/flag-icon.min.css">
+    <link rel="stylesheet" href="vendors/css/vendor.bundle.base.css">
+    <!-- endinject -->
+    <!-- Plugin css for this page -->
+    <link rel="stylesheet" href="./vendors/daterangepicker/daterangepicker.css">
+    <link rel="stylesheet" href="./vendors/chartist/chartist.min.css">
+    <!-- End plugin css for this page -->
+    <!-- inject:css -->
+    <!-- endinject -->
+    <!-- Layout styles -->
+    <link rel="stylesheet" href="./css/style.css">
+    <!-- End layout styles -->
+    <link rel="shortcut icon" href="/images/favicon.png" />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.24.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@0.1.1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/0.5.5/chartjs-plugin-annotation.min.js"></script>
+
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css" />
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/1.6.2/css/buttons.dataTables.min.css" />
+    <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.2/js/dataTables.buttons.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.print.min.js"></script>
+
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"></script>
+
+
+</head>
+<body>
+    <form id="form1" runat="server">
+
+        <asp:ScriptManager ID="ScriptManager1" runat="server" EnablePageMethods="true">
+        </asp:ScriptManager>
+
+        <div class="container-scroller">
+
+            <!-- partial:partials/_navbar.html -->
+            <nav class="navbar default-layout-navbar col-lg-12 col-12 p-0 fixed-top d-flex flex-row">
+                <div class="navbar-brand-wrapper d-flex align-items-center">
+                    <a class="navbar-brand brand-logo" href="index.aspx" runat="server" id="hiperlink1">
+                        <img src="/images/logo.svg" alt="logo" class="logo-dark" />
+                    </a>
+                    <a class="navbar-brand brand-logo-mini" href="index.aspx" runat="server" id="hiperlink2">
+                        <img src="/images/logo-mini.svg" alt="logo" /></a>
+                </div>
+                <div class="navbar-menu-wrapper d-flex align-items-center flex-grow-1">
+                    <h5 class="mb-0 font-weight-medium d-none d-lg-flex">Controlo da Produção de Filamento 3D</h5>
+                    <ul class="navbar-nav navbar-nav-right ml-auto">
+                        <div id="topBar" runat="server">
+                            <li class="nav-item dropdown d-none d-xl-inline-flex user-dropdown">
+                                <a class="nav-link dropdown-toggle" id="UserDropdown" href="#" data-toggle="dropdown" aria-expanded="false">
+                                    <span class="font-weight-normal"><% Response.Write(SessaoOperador.NomeOperador); %> </span></a>
+                                <div class="dropdown-menu dropdown-menu-right navbar-dropdown" aria-labelledby="UserDropdown">
+                                    <a class="dropdown-item" id="btnLogout" runat="server" onserverclick="btnLogout_ServerClick"><i class="dropdown-item-icon icon-power text-primary"></i>Terminar Sessão</a>
+                                </div>
+                            </li>
+                        </div>
+                    </ul>
+                    <button class="navbar-toggler navbar-toggler-right d-lg-none align-self-center" type="button" data-toggle="offcanvas">
+                        <span class="icon-menu"></span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- partial -->
+            <div class="container-fluid page-body-wrapper">
+                <!-- partial:partials/_sidebar.html -->
+                <nav class="sidebar sidebar-offcanvas">
+                    <ul class="nav">
+                        <div id="sidebar" runat="server">
+                            <li class="nav-item nav-profile">
+                                <a href="#" class="nav-link">
+                                    <div class="profile-image">
+                                        <img class="img-xs rounded-circle" src="<% Response.Write(SessaoOperador.GetAvatarLink); %>" alt="profile image">
+                                        <div class="dot-indicator bg-success"></div>
+                                    </div>
+                                    <div class="text-wrapper">
+                                        <p class="profile-name"><% Response.Write(SessaoOperador.NomeOperador); %></p>
+                                        <p class="designation"><% Response.Write(SessaoOperador.NivelSessao); %></p>
+                                    </div>
+                                </a>
+                            </li>
+                            <li class="nav-item nav-category">
+                                <span class="nav-link">Início</span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/index.aspx">
+                                    <span class="menu-title">Dados em Tempo Real</span>
+                                    <i class="icon-screen-desktop menu-icon"></i>
+                                </a>
+                            </li>
+
+                            <li class="nav-item nav-category">
+                                <span class="nav-link">Registos</span>
+                            </li>
+                            <div id="divConsultaRegistos" runat="server"></div>
+
+                            <li class="nav-item nav-category" id="btnSepConfiguracoes" runat="server">
+                                <span class="nav-link">Configurações</span>
+                            </li>
+                            <div id="divConfiguraMaquinas" runat="server"></div>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/ConfiguracoesAvancadasDB.aspx" id="btnConfigsAvancadasDB" runat="server">
+                                    <span class="menu-title">Base de Dados</span>
+                                    <i class="icon-list menu-icon"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/GestaoAcessos.aspx" id="btnGestaoAcessos" runat="server">
+                                    <span class="menu-title">Gestão de Acessos</span>
+                                    <i class="icon-shield menu-icon"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/GestaoEmails.aspx" id="btnGestaoEmails" runat="server">
+                                    <span class="menu-title">Gestão de Emails</span>
+                                    <i class="icon-envelope-letter menu-icon"></i>
+                                </a>
+                            </li>
+                        </div>
+                    </ul>
+                </nav>
+                <!-- partial -->
+                <%-- start: Div de Loading --%>
+                <div id="loading" style="position: absolute; top: 0; left: 0; min-height: 100%; width: 100%; opacity: 0.9; background-color: transparent; z-index: 1000; display: block;">
+                    <img style="display: block; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 1;" src="/images/loading2.gif" />
+                </div>
+                <%-- end: Div de Loading --%>
+
+
+                <div class="main-panel">
+
+                    <div class="content-wrapper">
+
+                        <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+                        </asp:ContentPlaceHolder>
+
+                    </div>
+                    <!-- content-wrapper ends -->
+                    <!-- partial:partials/_footer.html -->
+                    <footer class="footer">
+                        <div class="d-sm-flex justify-content-center justify-content-sm-between">
+                            <span class="text-muted text-center text-sm-left d-block d-sm-inline-block">Copyright © 2020 All rights reserved.</span>
+                            <%--<span class="float-none float-sm-right d-block mt-1 mt-sm-0 text-center">Hand-crafted & made with <i class="icon-heart text-danger"></i></span>--%>
+                        </div>
+                    </footer>
+                    <!-- partial -->
+                </div>
+                <!-- main-panel ends -->
+            </div>
+            <!-- page-body-wrapper ends -->
+        </div>
+
+
+
+        <!-- start: JavaScript-->
+        <script type="text/javascript">
+
+            var $ = jQuery;
+
+            document.addEventListener('DOMContentLoaded', function () {  //corre script no load
+
+            }, false);
+
+
+            function setDecimal(el) {
+
+                var value = parseFloat(el.value.replace(",", ".")).toFixed(3).replace(".", ",");
+
+                if (isNaN(value.replace(",", ".")))
+                    el.value = "";
+                else
+                    el.value = value;
+            }
+
+            function setInt(el) {
+
+                var value = parseFloat(el.value.replace(",", ".")).toFixed(0).replace(".", ",");
+
+                if (isNaN(value.replace(",", ".")))
+                    el.value = "";
+                else
+                    el.value = value;
+            }
+
+            function empty(str) {
+                if (typeof str == 'undefined' || !str || str.length === 0 || str === "" || !/[^\s]/.test(str) || /^\s*$/.test(str) || str.replace(/\s/g, "") === "") {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+
+            function UpdateQueryString(key, value, url) {
+                if (!url) url = window.location.href;
+                var re = new RegExp("([?&])" + key + "=.*?(&|#|$)(.*)", "gi"),
+                    hash;
+
+                if (re.test(url)) {
+                    if (typeof value !== 'undefined' && value !== null) {
+                        return url.replace(re, '$1' + key + "=" + value + '$2$3');
+                    }
+                    else {
+                        hash = url.split('#');
+                        url = hash[0].replace(re, '$1$3').replace(/(&|\?)$/, '');
+                        if (typeof hash[1] !== 'undefined' && hash[1] !== null) {
+                            url += '#' + hash[1];
+                        }
+                        return url;
+                    }
+                }
+                else {
+                    if (typeof value !== 'undefined' && value !== null) {
+                        var separator = url.indexOf('?') !== -1 ? '&' : '?';
+                        hash = url.split('#');
+                        url = hash[0] + separator + key + '=' + value;
+                        if (typeof hash[1] !== 'undefined' && hash[1] !== null) {
+                            url += '#' + hash[1];
+                        }
+                        return url;
+                    }
+                    else {
+                        return url;
+                    }
+                }
+            }
+
+            //Barra de loading
+            function LoadingVisibility(showLoading) {
+                var x = document.getElementById('loading');
+
+                if (x != null)
+                    x.style.display = showLoading ? "block" : "none";
+
+            }
+
+            function synchronusPageMethod(method) {
+
+                XMLHttpRequest.prototype.original_open = XMLHttpRequest.prototype.open;
+
+                XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
+                    async = false;
+
+                    var eventArgs = Array.prototype.slice.call(arguments);
+
+                    return this.original_open.apply(this, eventArgs);
+                };
+
+                var result;
+                var error;
+
+                var args = Array.prototype.slice.call(arguments).slice(1);
+                args.push(function (res) {
+                    result = res;
+                });
+
+                args.push(function (err) {
+                    error = err;
+                });
+
+                method.apply(null, args);
+
+                XMLHttpRequest.prototype.open = XMLHttpRequest.prototype.original_open;
+
+                if (error !== undefined) {
+                    throw error;
+                } else {
+                    return result;
+                }
+            }
+
+
+            //setInterval(function () {//a cada 500ms corre este script
+            //    if ($("#HeaderInfo").is(':visible')) {
+            //        var now = new Date();
+            //        document.getElementById("lblDateTime").innerHTML = now.toDateString() + ' ' + now.toLocaleTimeString();
+            //    }
+            //}, 500);
+
+        </script>
+        <!-- container-scroller -->
+        <!-- plugins:js -->
+        <script src="vendors/js/vendor.bundle.base.js"></script>
+        <!-- endinject -->
+        <!-- Plugin js for this page -->
+        <script src="./vendors/chart.js/Chart.min.js"></script>
+        <script src="./vendors/moment/moment.min.js"></script>
+        <script src="./vendors/daterangepicker/daterangepicker.js"></script>
+        <script src="./vendors/chartist/chartist.min.js"></script>
+        <!-- End plugin js for this page -->
+        <!-- inject:js -->
+        <script src="js/off-canvas.js"></script>
+        <script src="js/misc.js"></script>
+        <!-- endinject -->
+        <!-- Custom js for this page -->
+        <script src="./js/dashboard.js"></script>
+        <!-- End custom js for this page -->
+
+
+
+    </form>
+
+</body>
+</html>
