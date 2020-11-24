@@ -49,7 +49,7 @@
                                         </div>
                                         <div class="col-xl-6">
                                             <div style="float: right;">
-                                                <a href="javascript: UpdateChart();" type="button" class="btn btn-outline-primary btn-icon-text" id="btnRefresh" runat="server"><i class="icon-reload btn-icon-prepend"></i>Atualizar</a>
+                                                <a href="#" onclick="UpdateChart();" type="button" class="btn btn-outline-primary btn-icon-text" id="btnRefresh" runat="server"><i class="icon-reload btn-icon-prepend"></i>Atualizar</a>
                                             </div>
                                         </div>
                                     </div>
@@ -525,7 +525,7 @@
                     success: function (response) {
                         //Faz um for por cada campo
                         $.each($.parseJSON(response.d), function (i, item) {
-                            points.push({ x: formatDateTime(item.Timestamp), y: item.Diametro });
+                            points.push({ x: formatDateTime(item.T), y: item.D });
                         });
                     },
                     error:
@@ -606,7 +606,7 @@
                         //Faz um for por cada campo
                         $.each($.parseJSON(response.d), function (i, item) {
 
-                            table.row.add([item.Id, item.Tipo, item.Diametro, GetClassText(GetClass(item.Diametro)), item.DataHora]);
+                            table.row.add([(i + 1), item.A, item.D.toFixed(3), GetClassText(GetClass(item.Diametro)), item.T]);
                         });
 
                         if (table.rows().count() >= 1000)

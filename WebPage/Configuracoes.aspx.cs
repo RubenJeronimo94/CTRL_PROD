@@ -122,7 +122,16 @@ namespace WebPage
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message);
-                Response.Redirect("/notfound.html", false);
+
+                Response.Write("<b>Ocorreu um erro!</b> <br/> Clique <a href='javascript:window.history.back();'>aqui</a> para voltar a página anterior!  <br/>  <br/> <b>Descrição: </b>" + ex.Message);
+
+                Response.End();
+
+                //    Response.Redirect("/notfound.html", false);
+            }
+            finally
+            {
+                VARS.Maquinas = null;
             }
         }
     }

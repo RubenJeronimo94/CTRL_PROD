@@ -163,7 +163,9 @@ namespace WebPage
 
                     if (Diversos.CheckForInternetConnection())
                     {
-                        idQrCode.Src = @"https://chart.googleapis.com/chart?chs=190x190&cht=qr&chl=" + VARS.DOMINIO +
+                        string dominio = Convert.ToString(SQLHelper.ExecuteScalar("SELECT Value FROM Settings WHERE Id = 1", VARS.ConnectionString));
+
+                        idQrCode.Src = @"https://chart.googleapis.com/chart?chs=190x190&cht=qr&chl=" + dominio +
                              "ConsultarRegistos.aspx?id=" + id + "%26DtInicio=" + dtInicio + "%26DtFim=" + dtFim + "%26Offset=" + textOfst + "%26key=" +
                               new GetKeys().Encripta(dtFim + id.ToString() + textOfst.Replace(".", ",") + dtInicio).Replace("+", "X").Replace("=", "Y"); ;
                         idDisplayQrCode.Style.Add("display", "block");
@@ -197,11 +199,11 @@ namespace WebPage
         {
             //Populating a DataTable from database.
             DataTable dt = new DataTable();
-            dt.Columns.Add("Diametro", typeof(double));
-            dt.Columns.Add("Classificacao", typeof(int));
-            dt.Columns.Add("Timestamp", typeof(string));
+            dt.Columns.Add("D", typeof(double));
+            //dt.Columns.Add("C", typeof(int));
+            dt.Columns.Add("T", typeof(string));
 
-            int maxOfRecords = 500;
+            int maxOfRecords = 1000;
 
             if (string.IsNullOrWhiteSpace(Offset) || !Diversos.IsNumeric(Offset))
                 Offset = "0";
@@ -234,8 +236,9 @@ namespace WebPage
 
                     for (int i = 0; i < maquina.GraficoPontos.Pontos.Count; i++)
                     {
-                        if (i % increment == 0)
-                            dt.Rows.Add(Math.Round(maquina.GraficoPontos.Pontos[i].Value, 3), (int)maquina.GraficoPontos.Pontos[i].Classe, maquina.GraficoPontos.Pontos[i].DataHora.ToString("dd/MM/yyyy HH:mm:ss"));
+                        if (i % increment == 0 ||(maquina.GraficoPontos.Pontos[i].Classe != Classificacoes.Classificacao.Conforme && maquina.GraficoPontos.Pontos[i].Classe != lastClass))
+                            // dt.Rows.Add(Math.Round(maquina.GraficoPontos.Pontos[i].Value, 3), (int)maquina.GraficoPontos.Pontos[i].Classe, maquina.GraficoPontos.Pontos[i].DataHora.ToString("dd/MM/yyyy HH:mm:ss"));
+                            dt.Rows.Add(Math.Round(maquina.GraficoPontos.Pontos[i].Value, 3), maquina.GraficoPontos.Pontos[i].DataHora.ToString("dd/MM/yyyy HH:mm:ss"));
 
                         if (LAST_CLASS_TABLE.Count < 1000)
                             if (maquina.GraficoPontos.Pontos[i].Classe != Classificacoes.Classificacao.Conforme)
@@ -243,8 +246,9 @@ namespace WebPage
                                 if (maquina.GraficoPontos.Pontos[i].Classe != lastClass)
                                     LAST_CLASS_TABLE.Add(maquina.GraficoPontos.Pontos[i]);
 
-                                lastClass = maquina.GraficoPontos.Pontos[i].Classe;
                             }
+                        lastClass = maquina.GraficoPontos.Pontos[i].Classe;
+
 
                         if (maquina.GraficoPontos.Pontos[i].Classe == Classificacoes.Classificacao.Classe2)
                             numPointsClasse2++;
@@ -352,7 +356,7 @@ namespace WebPage
                 DataTable dt = new DataTable();
 
                 StringBuilder strQuery = new StringBuilder();
-                strQuery.Append("SELECT TOP 1000 Alertas.Id, TipoAlerta.Tipo, (Alertas.Diametro + @OFFSET) AS 'Diametro', FORMAT(Alertas.DataHora, 'dd/MM/yyyy HH:mm:ss') AS 'DataHora' FROM Alertas ");
+                strQuery.Append("SELECT TOP 1000 TipoAlerta.Tipo as 'A', (Alertas.Diametro + @OFFSET) AS 'D', FORMAT(Alertas.DataHora, 'dd/MM/yyyy HH:mm:ss') AS 'T' FROM Alertas ");
                 strQuery.Append("INNER JOIN TipoAlerta ON Alertas.IdAlerta = TipoAlerta.Id ");
                 strQuery.Append("WHERE Alertas.IdMaquina = @IdMaquina AND Alertas.DataHora BETWEEN @DATA1 AND @DATA2 ");
                 strQuery.Append("ORDER BY Alertas.Id");

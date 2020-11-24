@@ -47,6 +47,12 @@ namespace CTRL_PROD
         private int NumRegistosRepetidosAlarme = 20;
 
 
+        /// <summary>
+        /// 3 pts / sec * 1 minuto(s)
+        /// </summary>
+        private int MaxPointsToRestore = 180;
+
+
         public int TotalTime { get; private set; } = 0;
         public int TotalReadTime { get; private set; } = 0;
         public int DbInsertTime { get; private set; } = 0;
@@ -97,6 +103,9 @@ namespace CTRL_PROD
                     this.NumRegistosRepetidosAlarme = Convert.ToInt32(ini.RetornaINI(machineName, "NumRegistosRepetidosAlarme", this.NumRegistosRepetidosAlarme.ToString()));
 
                     this.falhaConexao = new FalhaConexao(Convert.ToInt32(ini.RetornaINI(machineName, "msToCommFailureAlarm", "5000")));
+
+                    this.MaxPointsToRestore = Convert.ToInt32(ini.RetornaINI(machineName, "MaxPointsToRestore", this.MaxPointsToRestore.ToString()));
+
                 }
 
                 this.mail = new EnviaEmail(iniPath);
@@ -390,6 +399,7 @@ namespace CTRL_PROD
 
         private void CicloTrabalho()
         {
+
             bool firstCycle = true;
             DateTime lastReadTime = DateTime.MinValue;
 
@@ -401,6 +411,9 @@ namespace CTRL_PROD
             NetworkCredential credentials = new NetworkCredential(this.ftpUsername, this.ftpPassword);
 
             Random rnd = new Random();
+
+            int lastLineCount = 0;
+            string lastDtfilename = string.Empty;
 
             while (this.isAlive)
                 try
@@ -416,12 +429,16 @@ namespace CTRL_PROD
 
                             this.LastTimeStamp = DateTime.Now;
                             this.ReadStatus = !this.ReadStatus;
+
+                            this.InsertDB(this.Diametro, this.LastTimeStamp);
                         }
                         else
                         {
                             //fazer magia para ler as tags
 
-                            FtpWebRequest reqFTP = (FtpWebRequest)FtpWebRequest.Create(new Uri(this.GetLatestFile(credentials, this.ftpDir)));
+                            string lastFilename = this.GetLatestFile(credentials, this.ftpDir);
+
+                            FtpWebRequest reqFTP = (FtpWebRequest)FtpWebRequest.Create(new Uri(lastFilename));
                             //FtpWebRequest reqFTP = (FtpWebRequest)FtpWebRequest.Create(@"ftp://192.168.1.101/usb1/trend/Diametro/20200909.csv");
 
                             DateTime dtStart = DateTime.Now;
@@ -436,44 +453,148 @@ namespace CTRL_PROD
                             using (StreamReader reader = new StreamReader(response.GetResponseStream()))
                                 try
                                 {
-                                    string line = reader.ReadToEnd().Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries).Last();
+                                    string[] lines = reader.ReadToEnd().Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 
-                                    int auxStart = line.IndexOf(",");
+                                    string fileDtFilename = Path.GetFileNameWithoutExtension(lastFilename);
 
-                                    TimeSpan valueTS = TimeSpan.Parse(line.Substring(0, auxStart));
+                                    if (lastDtfilename != fileDtFilename) //deteta mudança de ficheiro
+                                        lastLineCount = 1;//ignora a 1ª linha do ficheiro
 
-                                    if (lastValuesTs == valueTS)
-                                        countNumOfRepeatedTS++;
-                                    else
-                                        countNumOfRepeatedTS = 0;
+                                    lastDtfilename = fileDtFilename;
 
-                                    lastValuesTs = valueTS;
-
-
-                                    this.Diametro = Convert.ToDouble(line.Substring(auxStart + 1, line.Length - auxStart - 3).Replace(".", ","));
-
-                                    if (countNumOfRepeatedTS >= this.NumRegistosRepetidosAlarme)
+                                    if (lines.Length != lastLineCount)//se novas linhas para registar 
                                     {
-                                        string msg = "Número de registos repetidos lidos foi ultrapassado!";
-                                        if (countNumOfRepeatedTS == this.NumRegistosRepetidosAlarme)
-                                        {
-                                            this.InsertNewAlarm(Alertas.NumeroRegistosLidosUltrapassado);
-                                            throw new Exception(msg);
+                                        int auxStartIndex = 0;
 
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (!this.ReadStatus)
-                                        {
-                                            if (this.falhaConexao.AlertaEmitido || firstCycle)
-                                                this.InsertNewAlarm(Alertas.InicioMonitorizacao);
+                                        if (lines.Length - lastLineCount > this.MaxPointsToRestore)
+                                            auxStartIndex = lines.Length - this.MaxPointsToRestore;
+                                        else
+                                            auxStartIndex = lastLineCount;
 
-                                            this.AdicionaLog("Leitura iniciada com sucesso!");
+                                        lastLineCount = lines.Length;
+
+                                        for (int i = auxStartIndex; i < lines.Length; i++)
+                                        {
+                                            string line = lines[i];
+
+                                            int auxStart = line.IndexOf(",");
+
+                                            TimeSpan valueTS = TimeSpan.Parse(line.Substring(0, auxStart));
+
+                                            DateTime dtRow = DateTime.ParseExact(fileDtFilename, "yyyyMMdd", CultureInfo.InvariantCulture).AddSeconds(valueTS.TotalSeconds);
+
+                                            if (lastValuesTs == valueTS)
+                                                countNumOfRepeatedTS++;
+                                            else
+                                                countNumOfRepeatedTS = 0;
+
+                                            lastValuesTs = valueTS;
+
+                                            this.Diametro = Convert.ToDouble(line.Substring(auxStart + 1, line.Length - auxStart - 3).Replace(".", ","));
+
+                                            //insere registo na DB
+                                            this.InsertDB(this.Diametro, dtRow);
+
+                                            if (countNumOfRepeatedTS >= this.NumRegistosRepetidosAlarme)
+                                            {
+                                                string msg = "Número de registos repetidos lidos foi ultrapassado!";
+                                                if (countNumOfRepeatedTS == this.NumRegistosRepetidosAlarme)
+                                                {
+                                                    this.InsertNewAlarm(Alertas.NumeroRegistosLidosUltrapassado);
+                                                    // throw new Exception(msg);
+                                                    new Thread(this.TaskParalelaInsertAlarm).Start();
+
+                                                    if (this.ReadStatus && !this.falhaConexao.EmFalha)
+                                                        this.falhaConexao.FalhaLeitura();
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (!this.ReadStatus)
+                                                {
+                                                    if (this.falhaConexao.AlertaEmitido || firstCycle)
+                                                        this.InsertNewAlarm(Alertas.InicioMonitorizacao);
+
+                                                    this.AdicionaLog("Leitura iniciada com sucesso!");
+                                                }
+                                                this.ReadStatus = true;
+                                                this.falhaConexao.LimpaDados();
+                                            }
+
+                                            if (this.ReadStatus) //adiciona ao histório dos pontos para fazer a analise de valores descontrolados
+                                            {
+                                                int numOfNCPoints = 0;
+
+                                                lock (this.lockPoints)
+                                                {
+                                                    this.points.Insert(0, new DataPoint(this.Diametro, dtRow, this.Classe.GetClassificacao(this.Diametro)));
+
+                                                    //remove os pontos anteriores a x sec
+                                                    this.points.RemoveAll(x => x.DataHora < dtRow.Subtract(this.Classe.SpTempoMaxPontosNC));
+
+                                                    numOfNCPoints = this.points.Count(x => x.Classe != Classificacoes.Classificacao.Conforme);
+                                                }
+
+                                                bool dadosDescontrolados = numOfNCPoints > this.Classe.MaxPontosNC;
+
+                                                if (dadosDescontrolados && !fpDadosDescontrolados)
+                                                {
+                                                    this.InsertNewAlarm(Alertas.DadosDescontrolados);
+                                                    this.AdicionaLog("Dados de produção descontrolados. Existem " + numOfNCPoints.ToString() + " pontos fora da especificação em menos de " + Convert.ToInt32(this.Classe.SpTempoMaxPontosNC.TotalSeconds) + " segundos.");
+                                                }
+
+                                                fpDadosDescontrolados = dadosDescontrolados;
+                                            }
+                                            else
+                                            {
+                                                lock (this.lockPoints) this.points.Clear(); //**TODO** AVALIAR
+                                                fpDadosDescontrolados = false;
+                                            }
                                         }
-                                        this.ReadStatus = true;
-                                        this.falhaConexao.LimpaDados();
+
+
+
                                     }
+
+
+
+
+                                    //int auxStart = line.IndexOf(",");
+
+                                    //TimeSpan valueTS = TimeSpan.Parse(line.Substring(0, auxStart));
+
+                                    //if (lastValuesTs == valueTS)
+                                    //    countNumOfRepeatedTS++;
+                                    //else
+                                    //    countNumOfRepeatedTS = 0;
+
+                                    //lastValuesTs = valueTS;
+
+
+                                    //this.Diametro = Convert.ToDouble(line.Substring(auxStart + 1, line.Length - auxStart - 3).Replace(".", ","));
+
+                                    //if (countNumOfRepeatedTS >= this.NumRegistosRepetidosAlarme)
+                                    //{
+                                    //    string msg = "Número de registos repetidos lidos foi ultrapassado!";
+                                    //    if (countNumOfRepeatedTS == this.NumRegistosRepetidosAlarme)
+                                    //    {
+                                    //        this.InsertNewAlarm(Alertas.NumeroRegistosLidosUltrapassado);
+                                    //        throw new Exception(msg);
+
+                                    //    }
+                                    //}
+                                    //else
+                                    //{
+                                    //    if (!this.ReadStatus)
+                                    //    {
+                                    //        if (this.falhaConexao.AlertaEmitido || firstCycle)
+                                    //            this.InsertNewAlarm(Alertas.InicioMonitorizacao);
+
+                                    //        this.AdicionaLog("Leitura iniciada com sucesso!");
+                                    //    }
+                                    //    this.ReadStatus = true;
+                                    //    this.falhaConexao.LimpaDados();
+                                    //}
 
 
                                 }
@@ -484,7 +605,7 @@ namespace CTRL_PROD
                                         this.falhaConexao.FalhaLeitura();
 
                                         //iniciar thread para só dar o alarme algum tempo depois
-                                        new Thread(this.TaskParalelaInsertAlarm).Start();
+                                        // new Thread(this.TaskParalelaInsertAlarm).Start();
 
                                         //    this.InsertNewAlarm(Alertas.ParagemMonitorizacao);
                                     }
@@ -499,35 +620,35 @@ namespace CTRL_PROD
 
                                     this.LastTimeStamp = DateTime.Now;
 
-                                    if (this.ReadStatus) //adiciona ao histório dos pontos para fazer a analise de valores descontrolados
-                                    {
-                                        int numOfNCPoints = 0;
+                                    //if (this.ReadStatus) //adiciona ao histório dos pontos para fazer a analise de valores descontrolados
+                                    //{
+                                    //    int numOfNCPoints = 0;
 
-                                        lock (this.lockPoints)
-                                        {
-                                            this.points.Insert(0, new DataPoint(this.Diametro, this.LastTimeStamp, this.Classe.GetClassificacao(this.Diametro)));
+                                    //    lock (this.lockPoints)
+                                    //    {
+                                    //        this.points.Insert(0, new DataPoint(this.Diametro, this.LastTimeStamp, this.Classe.GetClassificacao(this.Diametro)));
 
-                                            //remove os pontos anteriores a x sec
-                                            this.points.RemoveAll(x => x.DataHora < DateTime.Now.Subtract(this.Classe.SpTempoMaxPontosNC));
+                                    //        //remove os pontos anteriores a x sec
+                                    //        this.points.RemoveAll(x => x.DataHora < DateTime.Now.Subtract(this.Classe.SpTempoMaxPontosNC));
 
-                                            numOfNCPoints = this.points.Count(x => x.Classe != Classificacoes.Classificacao.Conforme);
-                                        }
+                                    //        numOfNCPoints = this.points.Count(x => x.Classe != Classificacoes.Classificacao.Conforme);
+                                    //    }
 
-                                        bool dadosDescontrolados = numOfNCPoints > this.Classe.MaxPontosNC;
+                                    //    bool dadosDescontrolados = numOfNCPoints > this.Classe.MaxPontosNC;
 
-                                        if (dadosDescontrolados && !fpDadosDescontrolados)
-                                        {
-                                            this.InsertNewAlarm(Alertas.DadosDescontrolados);
-                                            this.AdicionaLog("Dados de produção descontrolados. Existem " + numOfNCPoints.ToString() + " pontos fora da especificação em menos de " + Convert.ToInt32(this.Classe.SpTempoMaxPontosNC.TotalSeconds) + " segundos.");
-                                        }
+                                    //    if (dadosDescontrolados && !fpDadosDescontrolados)
+                                    //    {
+                                    //        this.InsertNewAlarm(Alertas.DadosDescontrolados);
+                                    //        this.AdicionaLog("Dados de produção descontrolados. Existem " + numOfNCPoints.ToString() + " pontos fora da especificação em menos de " + Convert.ToInt32(this.Classe.SpTempoMaxPontosNC.TotalSeconds) + " segundos.");
+                                    //    }
 
-                                        fpDadosDescontrolados = dadosDescontrolados;
-                                    }
-                                    else
-                                    {
-                                        lock (this.lockPoints) this.points.Clear(); //**TODO** AVALIAR
-                                        fpDadosDescontrolados = false;
-                                    }
+                                    //    fpDadosDescontrolados = dadosDescontrolados;
+                                    //}
+                                    //else
+                                    //{
+                                    //    lock (this.lockPoints) this.points.Clear(); //**TODO** AVALIAR
+                                    //    fpDadosDescontrolados = false;
+                                    //}
 
                                     this.TotalReadTime = Convert.ToInt32((this.LastTimeStamp - dtStart).TotalMilliseconds);
                                     Debug.WriteLine("ReadTime(): Elapsed time " + this.TotalReadTime + " ms");
@@ -536,8 +657,8 @@ namespace CTRL_PROD
                                 }
                         }
 
-                        if (this.ReadStatus || modoSimulacaoLeitura)
-                            this.InsertDB();
+                        //if (this.ReadStatus || modoSimulacaoLeitura)
+                        //    this.InsertDB();
 
                         this.TotalTime = Convert.ToInt32((DateTime.Now - lastReadTime).TotalMilliseconds);
                     }
@@ -636,7 +757,7 @@ namespace CTRL_PROD
             this.isAlive = false;
         }
 
-        private bool InsertDB()
+        private bool InsertDB(double diametro, DateTime dtRegisto)
         {
             DateTime dtStart = DateTime.Now;
             try
@@ -645,9 +766,10 @@ namespace CTRL_PROD
                     throw new Exception("tablename cannot be empty!");
 
                 using (SqlConnection sqlConn = new SqlConnection(this.strConexao))
-                using (SqlCommand sqlCmd = new SqlCommand("INSERT INTO " + this.dataTable + " (Diametro) VALUES (@Diametro)", sqlConn))
+                using (SqlCommand sqlCmd = new SqlCommand("INSERT INTO " + this.dataTable + " (Diametro, DtUpload) VALUES (@Diametro, @DtUpload)", sqlConn))
                 {
-                    sqlCmd.Parameters.Add("@Diametro", System.Data.SqlDbType.Real).Value = this.Diametro;
+                    sqlCmd.Parameters.Add("@Diametro", System.Data.SqlDbType.Real).Value = diametro;
+                    sqlCmd.Parameters.Add("@DtUpload", System.Data.SqlDbType.DateTime).Value = dtRegisto;
 
                     sqlConn.Open();
 

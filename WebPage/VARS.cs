@@ -18,7 +18,7 @@ namespace WebPage
                     return @"data source=.,1433\SQLEXPRESS; Initial Catalog=CTRL_PROD; MultipleActiveResultSets=True; persist security info=False; UID=user; PWD=user;"; //Forma de conexão remota
                 else
                 {
-                    return @"data source=192.168.33.10,1433\SQLEXPRESS; Initial Catalog=CTRL_PROD; MultipleActiveResultSets=True; persist security info=False; UID=user; PWD=user;"; //Forma de conexão remota
+                    return @"data source=192.168.33.7,1433\SQLEXPRESS; Initial Catalog=CTRL_PROD; MultipleActiveResultSets=True; persist security info=False; UID=user; PWD=user;"; //Forma de conexão remota
                 }
 
 
@@ -58,6 +58,7 @@ namespace WebPage
         public static string ConvertDataTabletoString(System.Data.DataTable dt)
         {
             System.Web.Script.Serialization.JavaScriptSerializer serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+            serializer.MaxJsonLength = Int32.MaxValue;
             List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
             Dictionary<string, object> row;
             foreach (System.Data.DataRow dr in dt.Rows)
@@ -123,7 +124,7 @@ namespace WebPage
             }
         }
             
-        public static string DOMINIO = @"https://localhost:44341/";
+    //    public static string DOMINIO = @"http://producao3d.tucab.local/";
 
     }
 
